@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import mock
 from click.testing import CliRunner
 from dagster_tests.api_tests.utils import get_bar_repo_handle, get_foo_pipeline_handle
@@ -229,18 +230,16 @@ def test_execute_step():
                 pipeline_code_origin=pipeline_handle.get_python_origin(),
             )
 
-            input_json = serialize_dagster_namedtuple(
-                ExecuteStepArgs(
-                    pipeline_origin=pipeline_handle.get_python_origin(),
-                    pipeline_run_id=run.run_id,
-                    step_keys_to_execute=None,
-                    instance_ref=instance.get_ref(),
-                )
+            args = ExecuteStepArgs(
+                pipeline_origin=pipeline_handle.get_python_origin(),
+                pipeline_run_id=run.run_id,
+                step_keys_to_execute=None,
+                instance_ref=instance.get_ref(),
             )
 
             result = runner_execute_step(
                 runner,
-                [input_json],
+                args._get_compressed_args(),
             )
 
         assert "STEP_SUCCESS" in result.stdout
@@ -266,18 +265,14 @@ def test_execute_step_1():
                 pipeline_code_origin=pipeline_handle.get_python_origin(),
             )
 
-            input_json = serialize_dagster_namedtuple(
+            result = runner_execute_step(
+                runner,
                 ExecuteStepArgs(
                     pipeline_origin=pipeline_handle.get_python_origin(),
                     pipeline_run_id=run.run_id,
                     step_keys_to_execute=None,
                     instance_ref=instance.get_ref(),
-                )
-            )
-
-            result = runner_execute_step(
-                runner,
-                [input_json],
+                )._get_compressed_args(),
             )
 
         assert "STEP_SUCCESS" in result.stdout
@@ -300,15 +295,6 @@ def test_execute_step_verify_step():
                 pipeline_name="foo",
                 run_id="new_run",
                 pipeline_code_origin=pipeline_handle.get_python_origin(),
-            )
-
-            input_json = serialize_dagster_namedtuple(
-                ExecuteStepArgs(
-                    pipeline_origin=pipeline_handle.get_python_origin(),
-                    pipeline_run_id=run.run_id,
-                    step_keys_to_execute=None,
-                    instance_ref=instance.get_ref(),
-                )
             )
 
             # Check that verify succeeds for step that has hasn't been fun (case 3)
@@ -336,7 +322,12 @@ def test_execute_step_verify_step():
 
             runner_execute_step(
                 runner,
-                [input_json],
+                ExecuteStepArgs(
+                    pipeline_origin=pipeline_handle.get_python_origin(),
+                    pipeline_run_id=run.run_id,
+                    step_keys_to_execute=None,
+                    instance_ref=instance.get_ref(),
+                )._get_compressed_args(),
             )
 
             # # Check that verify fails for step that has already run (case 1)
@@ -366,7 +357,8 @@ def test_execute_step_verify_step_framework_error(mock_verify_step):
                 pipeline_code_origin=pipeline_handle.get_python_origin(),
             )
 
-            input_json = serialize_dagster_namedtuple(
+            result = runner.invoke(
+                api.execute_step_command,
                 ExecuteStepArgs(
                     pipeline_origin=pipeline_handle.get_python_origin(),
                     pipeline_run_id=run.run_id,
@@ -379,9 +371,8 @@ def test_execute_step_verify_step_framework_error(mock_verify_step):
                             "blah": {"result": ["0", "1", "2"]},
                         },
                     ),
-                )
+                )._get_compressed_args(),
             )
-            result = runner.invoke(api.execute_step_command, [input_json])
 
             assert result.exit_code != 0
 

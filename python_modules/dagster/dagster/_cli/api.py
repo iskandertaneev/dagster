@@ -1,7 +1,9 @@
+import base64
 import json
 import logging
 import os
 import sys
+import zlib
 from typing import Any, Callable, Optional, cast
 
 import click
@@ -319,7 +321,8 @@ def verify_step(instance, pipeline_run, retry_state, step_keys_to_execute):
 def execute_step_command(input_json):
     with capture_interrupts():
 
-        args = deserialize_as(input_json, ExecuteStepArgs)
+        decompressed_input_json = zlib.decompress(base64.b64decode(input_json.encode())).decode()
+        args = deserialize_as(decompressed_input_json, ExecuteStepArgs)
 
         with (
             DagsterInstance.from_ref(args.instance_ref)
