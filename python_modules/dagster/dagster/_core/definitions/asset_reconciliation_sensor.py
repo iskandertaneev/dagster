@@ -142,17 +142,6 @@ def _get_parent_updates(
     return parent_asset_event_records
 
 
-def parent_was_materialized_since_latest_planned_materialization():
-    """
-    Returns true if there exists a materialization of parent asset X that occurred after the latest
-    planned materialization of asset Y
-
-    Two different ways to know about the latest planned materialization of asset Y:
-    - It's recorded in the sensor cursor
-    - It's in the database
-    """
-
-
 def _make_sensor(
     selection: AssetSelection,
     name: str,
@@ -181,7 +170,7 @@ def _make_sensor(
             _deserialize_cursor_dict(context.cursor) if context.cursor else {}
         )
         run_requests, newly_consumed_storage_ids_by_asset_key_str = reconcile(
-            repository_def=context._repository_def,
+            repository_def=context._repository_def,  # pylint: disable=protected-access
             asset_selection=selection,
             wait_for_all_upstream=wait_for_all_upstream,
             wait_for_in_progress_runs=wait_for_in_progress_runs,
@@ -219,7 +208,7 @@ def reconcile(
     wait_for_all_upstream: bool,
     latest_consumed_storage_ids_by_asset_key_str: Mapping[str, int],
     run_tags: Mapping[str, str],
-) -> Union[Sequence[RunRequest], Mapping[str, int]]:
+) -> Tuple[Sequence[RunRequest], Mapping[str, int]]:
     asset_defs_by_key = repository_def._assets_defs_by_key  # pylint: disable=protected-access
     source_asset_defs_by_key = (
         repository_def.source_assets_by_key  # pylint: disable=protected-access
@@ -248,23 +237,6 @@ def reconcile(
         current_asset_cursor = latest_consumed_storage_ids_by_asset_key_str.get(
             str(current_asset_key)
         )
-
-        # find out whether each parent asset partition was updated since the latest time we care
-        # about for that parent asset partition
-
-        # what's the latest time we care about? after the latest planned materialization for that asset partition
-
-        # how do we represent whether each parent asset partition was updated?
-        # maybe brute-forcing it isn't so bad? it will only be a large amount in the case of a backfill, which isn't so bad
-
-        # for each partition of the current asset, decide whether to materialize it based on
-        # the combination of partition mappings and AND vs. OR policy
-
-        # we implement this with a forward pass and a backward pass:
-        # - forward pass: find every downstream asset partition of every updated parent partition
-        # - backward pass (only needed if AND): find every upstream asset partition of the downstream asset partition discovered in the forward pass
-
-        # launch those partitions
 
         parent_update_records = _get_parent_updates(
             current_asset=current_asset_key,
